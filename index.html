@@ -1,1 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ROBERTROTHE.COM</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1e1e1e;
+            font-family: 'Arial', sans-serif;
+        }
 
+        #hover-cursor {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(51, 51, 51, 0.9);
+            z-index: 999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            border: 4px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        .option {
+            background-color: #00ff00;
+            padding: 15px 30px;
+            margin: 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            color: black;
+            font-size: 18px;
+            display: inline-block;
+            transition: background-color 0.3s, color 0.3s;
+            font-family: 'Courier New', Courier, monospace;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .option:hover {
+            background-color: black;
+            color: #00ff00;
+        }
+
+        h1 {
+            font-family: 'Courier New', Courier, monospace;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://threejs.org/examples/jsm/loaders/FontLoader.js"></script>
+    <script src="https://threejs.org/examples/jsm/geometries/TextGeometry.js"></script>
+</head>
+<body>
+    <div id="hover-cursor"></div>
+    <div id="overlay">
+        <h1>2R Coin Options</h1>
+        <a class="option" href="https://github.com/robertrothe/2rcoin" target="_blank">Wallet</a>
+        <a class="option" href="https://robertrothe.com/market" target="_blank">Market</a>
+    </div>
+
+    <script>
+        let scene, camera, renderer, raycaster, mouse, INTERSECTED, robertrotheText, coinText, coinTextCenter;
+        const hoverCursor = document.getElementById('hover-cursor');
+        const overlay = document.getElementById('overlay');
+
+        const fontUrls = [
+            'https://threejs.org/examples/fonts/helvetiker_bold.typeface.json'
+        ];
+
+        const randomFontUrl = fontUrls[Math.floor(Math.random() * fontUrls.length)];
+        const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 50;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x1e1e1e);
+            document.body.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 2, 100);
+            pointLight.position.set(50, 50, 50);
+            scene.add(pointLight);
+
+            const loader = new THREE.FontLoader();
+            loader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', function (font) {
+                const textGeometry = new THREE.TextGeometry("2R", {
+                    font: font,
+                    size: 5,
+                    height: 2,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 2,
+                    bevelSize: 1,
+                    bevelOffset: 0,
+                    bevelSegments: 5
+                });
+
+                textGeometry.computeBoundingBox();
+                const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+                const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
+
+                const textMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x007bff,
+                    shininess: 100
+                });
+
+                coinText = new THREE.Mesh(textGeometry, textMaterial);
+                coinTextCenter = new THREE.Object3D();
+                coinText.position.set(-0.5 * textWidth, -0.5 * textHeight, 0);
+                coinTextCenter.add(coinText);
+                coinTextCenter.position.set(0, 0, 0);
+                coinTextCenter.userData = { url: "https://github.com/robertrothe/2rcoin" };
+                scene.add(coinTextCenter);
+            });
+
+            loader.load(randomFontUrl, function (font) {
+                const textGeometry = new THREE.TextGeometry("ROBERTROTHE.COM", {
+                    font: font,
+                    size: 5,
+                    height: 2,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 2,
+                    bevelSize: 1,
+                    bevelOffset: 0,
+                    bevelSegments: 5
+                });
+                const textMaterial = new THREE.MeshStandardMaterial({
+                    color: randomColor,
+                    roughness: 0.3,
+                    metalness: 0
+                });
+                robertrotheText = new THREE.Mesh(textGeometry, textMaterial);
+                robertrotheText.position.set(-30, 20, 0);
+                robertrotheText.userData = { url: "https://robertrothe.com" };
+                scene.add(robertrotheText);
+            });
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            document.addEventListener('mousemove', onMouseMove, false);
+            document.addEventListener('click', onMouseClick, false);
+
+            animate();
+        }
+
+        function onMouseMove(event) {
+            event.preventDefault();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                hoverCursor.style.display = 'block';
+                hoverCursor.style.left = `${event.clientX}px`;
+                hoverCursor.style.top = `${event.clientY}px`;
+
+                if (INTERSECTED !== intersects[0].object) {
+                    if (INTERSECTED) {
+                        if (INTERSECTED.parent === coinTextCenter) {
+                            coinText.material.color.set(0x007bff);
+                        } else if (INTERSECTED === robertrotheText) {
+                            robertrotheText.material.color.set(randomColor);
+                        }
+                    }
+
+                    INTERSECTED = intersects[0].object;
+
+                    if (INTERSECTED.parent === coinTextCenter || INTERSECTED === robertrotheText) {
+                        document.body.style.cursor = 'pointer';
+                        if (INTERSECTED.parent === coinTextCenter) {
+                            coinText.material.color.set(0xff0000);
+                        } else {
+                            robertrotheText.material.color.set(0xffa500);
+                        }
+                    }
+                }
+            } else {
+                hoverCursor.style.display = 'none';
+                if (INTERSECTED) {
+                    if (INTERSECTED.parent === coinTextCenter) {
+                        coinText.material.color.set(0x007bff);
+                    } else if (INTERSECTED === robertrotheText) {
+                        robertrotheText.material.color.set(randomColor);
+                    }
+                }
+                document.body.style.cursor = 'default';
+                INTERSECTED = null;
+            }
+        }
+
+        function onMouseClick(event) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const clickedObject = intersects[0].object;
+                const clickableParent = clickedObject.parent === coinTextCenter ? clickedObject.parent : clickedObject;
+
+                if (clickableParent === coinTextCenter) {
+                    // Show overlay
+		    overlay.style.display = 'flex';
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                    }, 4000);
+                } else if (clickableParent.userData.url) {
+                    window.open(clickableParent.userData.url, '_blank');
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate the centered text
+            if (coinTextCenter) {
+                coinTextCenter.rotation.y += 0.01;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Initialize the scene
+        init();
+    </script>
+</body>
+</html>
